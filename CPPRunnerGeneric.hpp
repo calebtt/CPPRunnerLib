@@ -40,11 +40,12 @@ namespace sds
 	public:
 		/// <summary>Starts running a new thread for the lambda.</summary>
 		///	<returns>true on success, false on failure.</returns>
-		bool StartThread() noexcept
+		bool StartThread()
 		{
 			if (m_local_thread != nullptr)
 				return false;
 			m_is_stop_requested = false;
+			//make_unique may throw bad_alloc
 			m_local_thread = std::make_unique<std::thread>(m_lambda, std::ref(m_is_stop_requested), std::ref(m_state_mutex), std::ref(m_local_state));
 			return m_local_thread->joinable();
 		}
@@ -56,7 +57,7 @@ namespace sds
 			return false;
 		}
 		/// <summary>Non-blocking way to stop a running thread.</summary>
-		void RequestStop() noexcept
+		void RequestStop()
 		{
 			//Get this setting out of the way.
 			this->m_is_stop_requested = true;
@@ -68,7 +69,7 @@ namespace sds
 			}
 		}
 		/// <summary>Blocking way to stop a running thread, joins to current thread and waits.</summary>
-		void StopThread() noexcept
+		void StopThread()
 		{
 			//Get this setting out of the way.
 			this->m_is_stop_requested = true;
@@ -87,16 +88,24 @@ namespace sds
 			}
 		}
 		/// <summary>Container type function, adds an element to say, a vector.</summary>
-		void AddState(const auto& state) noexcept requires std::ranges::range<InternalData>
+		void AddState(const auto& state) noexcept requires std::ranges::range<InternalData> && std::is_nothrow_constructible_v<InternalData>
 		{
 			ScopedLockType tempLock(this->m_state_mutex);
-			this->m_local_state.push_back(state);
+			//if an exception is thrown by emplace_back, it has no effect (strong exception guarantee)
+			//provided the constructor of the type doesn't throw an exception, otherwise it's UB.
+			this->m_local_state.emplace_back(state);
+		}
+		/// <summary>Overload for exception throwing elements. Container type function, adds an element to say, a vector.</summary>
+		void AddState(const auto& state) requires std::ranges::range<InternalData>
+		{
+			ScopedLockType tempLock(this->m_state_mutex);
+			this->m_local_state.emplace_back(state);
 		}
 		/// <summary>Container type function, returns copy and clears internal one.</summary>
 		auto GetAndClearCurrentStates() noexcept requires std::ranges::range<InternalData>
 		{
 			ScopedLockType tempLock(this->m_state_mutex);
-			auto temp = this->m_local_state;
+			const auto temp = this->m_local_state;
 			this->m_local_state.clear();
 			return temp;
 		}

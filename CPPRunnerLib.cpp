@@ -82,5 +82,5 @@ int main()
 	//pause and wait for [enter] before stopping the lambda thread and finally ending the main thread.
 	cout << "ENTER to exit." << endl;
 	cin.get();
-	//myRunner.StopThread(); //CPPLambdaRunner destructor will also stop the thread.
+	//myRunner.StopThread(); //destructor will also stop the thread.
 }
