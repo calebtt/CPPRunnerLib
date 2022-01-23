@@ -14,8 +14,7 @@ namespace sds
 		using LambdaArg2 = std::mutex;
 	};
 	/// <summary>All aboard the SFINAE train</summary>
-	template<typename InternalData>
-		requires std::is_default_constructible_v<InternalData>
+	template<typename InternalData> requires std::is_default_constructible_v<InternalData>
 	class CPPRunnerGeneric
 	{
 	public:
@@ -88,7 +87,7 @@ namespace sds
 			}
 		}
 		/// <summary>Container type function, adds an element to say, a vector.</summary>
-		void AddState(const auto& state) noexcept requires std::ranges::range<InternalData> && std::is_nothrow_constructible_v<InternalData>
+		void AddState(const auto& state) noexcept requires (std::ranges::range<InternalData> && std::is_nothrow_default_constructible_v<decltype(state)>)
 		{
 			ScopedLockType tempLock(this->m_state_mutex);
 			//if an exception is thrown by emplace_back, it has no effect (strong exception guarantee)
@@ -105,7 +104,7 @@ namespace sds
 		auto GetAndClearCurrentStates() noexcept requires std::ranges::range<InternalData>
 		{
 			ScopedLockType tempLock(this->m_state_mutex);
-			const auto temp = this->m_local_state;
+			auto temp = this->m_local_state;
 			this->m_local_state.clear();
 			return temp;
 		}
